@@ -263,16 +263,6 @@ LoopQueries:
 			}
 		}
 
-		if rows.Next() == false && bt.queryTypes[index] == queryTypeSlaveDelay {
-			logp.Info("show slave status")
-			event := common.MapStr{
-				"@timestamp": common.Time(dtNow),
-				"type":       queryTypeSlaveDelay,
-			}
-			event[columnNameSlaveDelay] = 0
-			bt.client.PublishEvent(event)
-		}
-
 	LoopRows:
 		for rows.Next() {
 			switch bt.queryTypes[index] {
@@ -456,6 +446,7 @@ func (bt *Mysqlbeat) appendRowToEvent(event common.MapStr, row *sql.Rows, column
 
 // generateEventFromRow creates a new event from the row data and returns it
 func (bt *Mysqlbeat) generateEventFromRow(row *sql.Rows, columns []string, queryType string, rowAge time.Time) (common.MapStr, error) {
+	logp.Info("generateEventFromRow: %v", queryType)
 
 	// Make a slice for the values
 	values := make([]sql.RawBytes, len(columns))
@@ -475,6 +466,7 @@ func (bt *Mysqlbeat) generateEventFromRow(row *sql.Rows, columns []string, query
 	// Get RawBytes from data
 	err := row.Scan(scanArgs...)
 	if err != nil {
+		logp.Err("scan error: %v", err)
 		return nil, err
 	}
 
@@ -605,6 +597,10 @@ func (bt *Mysqlbeat) generateEventFromRow(row *sql.Rows, columns []string, query
 			} else if strColType == columnTypeFloat {
 				event[strEventColName] = fColValue
 			} else {
+				event[strEventColName] = 0
+			}
+
+			if event[strEventColName] == "" {
 				event[strEventColName] = 0
 			}
 
